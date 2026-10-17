@@ -1,0 +1,56 @@
+{
+  "name": "@kurox_real/solana-agent-kit-guard",
+  "version": "1.0.0",
+  "description": "RugShield honeypot auditor, CanaryGuard prompt-injection firewall, and StealthGuard anti-bot scraper actions for Solana Agent Kit (sendaifun/solana-agent-kit).",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node ../rugshield-402/sdk/typescript/node_modules/typescript/lib/tsc.js"
+  },
+  "keywords": [
+    "solana",
+    "solana-agent-kit",
+    "sendai",
+    "rugshield",
+    "canaryguard",
+    "stealthguard",
+    "honeypot",
+    "prompt-injection",
+    "ai-agent",
+    "trading-bot",
+    "x402"
+  ],
+  "author": "kurox_real",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ak10082247-max/solana-agent-kit-guard.git"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "peerDependencies": {
+    "solana-agent-kit": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "solana-agent-kit": {
+      "optional": true
+    }
+  }
+}
