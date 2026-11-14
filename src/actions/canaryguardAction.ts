@@ -32,10 +32,19 @@ export const canaryguardSanitizeAction = {
   schema: CanaryguardSanitizeSchema,
   handler: async (agent: any, input: z.infer<typeof CanaryguardSanitizeSchema>) => {
     try {
-      const endpoint = "https://canaryguard-402.onrender.com/v1/sanitize/preview";
+      const paymentHeader =
+        typeof process !== "undefined" ? process.env?.CANARYGUARD_PAYMENT_HEADER : undefined;
+      const endpoint = paymentHeader
+        ? "https://canaryguard-402.onrender.com/v1/sanitize"
+        : "https://canaryguard-402.onrender.com/v1/sanitize/preview";
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (paymentHeader) {
+        headers["PAYMENT-SIGNATURE"] = paymentHeader;
+        headers["X-PAYMENT"] = paymentHeader;
+      }
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           content: input.content,
           strict_mode: input.strictMode ?? true,
@@ -52,12 +61,12 @@ export const canaryguardSanitizeAction = {
 
       const data = await res.json();
       return {
-        status: data.status || "clean",
+        status: data.status ?? "unknown",
         injection_detected: Boolean(data.injection_detected),
-        risk_score: data.risk_score ?? 0,
+        risk_score: typeof data.risk_score === "number" ? data.risk_score : null,
         threats_neutralized: data.threats_neutralized || [],
         crypto_addresses: data.crypto_addresses || [],
-        sanitized_content: data.sanitized_content || input.content,
+        sanitized_content: data.sanitized_content ?? "",
         safety_receipt: data.safety_receipt,
       };
     } catch (err: any) {

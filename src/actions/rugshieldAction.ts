@@ -54,19 +54,33 @@ export const rugshieldAuditAction = {
       }
 
       const data = await res.json();
+      const isHoneypot = typeof data.is_honeypot === "boolean" ? data.is_honeypot : null;
+      const buyTaxBps = typeof data.buy_tax_bps === "number" ? data.buy_tax_bps : null;
+      const sellTaxBps = typeof data.sell_tax_bps === "number" ? data.sell_tax_bps : null;
+      const liquidityUsd = typeof data.liquidity_usd === "number" ? data.liquidity_usd : null;
+      const recommendation =
+        data.recommendation ??
+        (isHoneypot === true
+          ? "DO_NOT_TRADE"
+          : isHoneypot === false && sellTaxBps !== null && sellTaxBps < 1000
+            ? "SAFE_TO_SWAP"
+            : "UNSIMULATED_PREVIEW");
       return {
-        status: "success",
+        status: data.simulation_status ?? "preview",
         token: input.tokenAddress,
         chain: input.chain,
-        is_honeypot: Boolean(data.is_honeypot),
-        buy_tax_bps: data.buy_tax_bps ?? 0,
-        sell_tax_bps: data.sell_tax_bps ?? 0,
-        liquidity_usd: data.liquidity_usd ?? 0,
-        recommendation: data.recommendation || (data.is_honeypot ? "DO_NOT_TRADE" : "SAFE_TO_SWAP"),
-        attestation: data.attestation,
-        summary: data.is_honeypot
-          ? "🚨 DANGER: Token flagged as a HONEYPOT or high-tax trap!"
-          : "✅ CLEAR: Token passed pre-swap safety audit.",
+        is_honeypot: isHoneypot,
+        buy_tax_bps: buyTaxBps,
+        sell_tax_bps: sellTaxBps,
+        liquidity_usd: liquidityUsd,
+        recommendation,
+        attestation: data.attestation ?? null,
+        summary:
+          isHoneypot === true
+            ? "🚨 DANGER: Token flagged as a HONEYPOT or high-tax trap!"
+            : isHoneypot === false
+              ? "✅ VERIFIED: Token passed simulated buy/sell safety audit."
+              : "⚠️ UNSIMULATED PREVIEW: Honeypot status and taxes are unverified (free preview; paid x402 simulation required for full verification).",
       };
     } catch (err: any) {
       return {
