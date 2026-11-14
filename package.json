@@ -1,6 +1,6 @@
 {
   "name": "@kurox_real/solana-agent-kit-guard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "RugShield honeypot auditor and CanaryGuard prompt-injection firewall actions for Solana Agent Kit (sendaifun/solana-agent-kit).",
   "type": "module",
   "main": "dist/index.js",
