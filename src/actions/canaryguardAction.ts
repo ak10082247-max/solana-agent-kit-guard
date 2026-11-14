@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createGuardPayingFetch, resolvePrivateKey, X402_UPGRADE_HINT } from "../x402.js";
+import { resolveGuardRequestContext, X402_UPGRADE_HINT } from "../x402.js";
 
 export const CanaryguardSanitizeSchema = z.object({
   content: z
@@ -43,21 +43,13 @@ export const canaryguardSanitizeAction = {
         (typeof process !== "undefined" ? process.env?.CANARYGUARD_URL : undefined) ||
         "https://canaryguard-402.onrender.com"
       ).replace(/\/$/, "");
-      const customFetch = agent?.customFetch ?? fetch;
-      const privateKey = resolvePrivateKey(agent, ["CANARYGUARD_PRIVATE_KEY"]);
-      const paymentHeader =
-        agent?.canaryguardPaymentHeader ||
-        (typeof process !== "undefined" ? process.env?.CANARYGUARD_PAYMENT_HEADER : undefined);
-
-      const isPaid = Boolean(privateKey || paymentHeader);
+      const { caller, headers, paymentMode, isPaid } = await resolveGuardRequestContext(agent, {
+        extraEvmEnvKeys: ["CANARYGUARD_PRIVATE_KEY"],
+        extraSolanaEnvKeys: ["CANARYGUARD_SOLANA_PRIVATE_KEY"],
+        agentHeaderProp: "canaryguardPaymentHeader",
+        envHeaderKey: "CANARYGUARD_PAYMENT_HEADER",
+      });
       const endpoint = `${host}${isPaid ? "/v1/sanitize" : "/v1/sanitize/preview"}`;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (paymentHeader && !privateKey) {
-        headers["PAYMENT-SIGNATURE"] = paymentHeader;
-        headers["X-PAYMENT"] = paymentHeader;
-      }
-
-      const caller = privateKey ? createGuardPayingFetch(privateKey, customFetch) : customFetch;
       const res = await caller(endpoint, {
         method: "POST",
         headers,
@@ -84,7 +76,7 @@ export const canaryguardSanitizeAction = {
         crypto_addresses: data.crypto_addresses || [],
         sanitized_content: data.sanitized_content ?? "",
         safety_receipt: data.safety_receipt,
-        payment_mode: privateKey ? "x402_paid" : paymentHeader ? "x402_header" : "free_preview",
+        payment_mode: paymentMode,
         x402_upgrade_hint: isPaid ? undefined : X402_UPGRADE_HINT,
       };
     } catch (err: any) {

@@ -1,7 +1,7 @@
 {
   "name": "@kurox_real/solana-agent-kit-guard",
-  "version": "1.0.2",
-  "description": "RugShield honeypot auditor and CanaryGuard prompt-injection firewall actions for Solana Agent Kit (sendaifun/solana-agent-kit).",
+  "version": "1.1.0",
+  "description": "RugShield honeypot auditor and CanaryGuard prompt-injection firewall actions for Solana Agent Kit with automatic Solana & Base USDC x402 v2 payment signing.",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -18,7 +18,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "node ../rugshield-402/sdk/typescript/node_modules/typescript/lib/tsc.js"
+    "build": "tsc",
+    "test": "node --test test/guard.test.mjs",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "solana",
@@ -42,9 +44,12 @@
     "url": "https://github.com/ak10082247-max/solana-agent-kit-guard.git"
   },
   "dependencies": {
-    "@x402/core": "^2.28.0",
-    "@x402/evm": "^2.28.0",
-    "@x402/fetch": "^2.28.0",
+    "@solana/kit": "^8.6.0",
+    "@x402/core": "^2.31.0",
+    "@x402/evm": "^2.31.0",
+    "@x402/fetch": "^2.31.0",
+    "@x402/svm": "^2.31.0",
+    "bs58": "^6.0.0",
     "viem": "^2.57.4",
     "zod": "^3.24.1"
   },
@@ -55,5 +60,8 @@
     "solana-agent-kit": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

@@ -11,6 +11,16 @@ import { canaryguardSanitizeAction } from "./actions/canaryguardAction.js";
 
 export { rugshieldAuditAction, RugshieldAuditSchema } from "./actions/rugshieldAction.js";
 export { canaryguardSanitizeAction, CanaryguardSanitizeSchema } from "./actions/canaryguardAction.js";
+export {
+  createGuardPayingFetch,
+  createGuardPayingFetchAsync,
+  parseSolanaSecretKeyBytes,
+  resolvePrivateKey,
+  resolveSolanaPrivateKeyBytes,
+  resolveSolanaRpcUrl,
+  resolveGuardRequestContext,
+  X402_UPGRADE_HINT,
+} from "./x402.js";
 
 export const GUARD_ACTIONS = [
   rugshieldAuditAction,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createGuardPayingFetch, resolvePrivateKey, X402_UPGRADE_HINT } from "../x402.js";
+import { resolveGuardRequestContext, X402_UPGRADE_HINT } from "../x402.js";
 
 export const RugshieldAuditSchema = z.object({
   tokenAddress: z
@@ -45,21 +45,13 @@ export const rugshieldAuditAction = {
         (typeof process !== "undefined" ? process.env?.RUGSHIELD_URL : undefined) ||
         "https://rugshield-402.onrender.com"
       ).replace(/\/$/, "");
-      const customFetch = agent?.customFetch ?? fetch;
-      const privateKey = resolvePrivateKey(agent, ["RUGSHIELD_PRIVATE_KEY"]);
-      const paymentHeader =
-        agent?.rugshieldPaymentHeader ||
-        (typeof process !== "undefined" ? process.env?.RUGSHIELD_PAYMENT_HEADER : undefined);
-
-      const isPaid = Boolean(privateKey || paymentHeader);
+      const { caller, headers, paymentMode, isPaid } = await resolveGuardRequestContext(agent, {
+        extraEvmEnvKeys: ["RUGSHIELD_PRIVATE_KEY"],
+        extraSolanaEnvKeys: ["RUGSHIELD_SOLANA_PRIVATE_KEY"],
+        agentHeaderProp: "rugshieldPaymentHeader",
+        envHeaderKey: "RUGSHIELD_PAYMENT_HEADER",
+      });
       const endpoint = `${host}${isPaid ? "/v1/scan" : "/v1/scan/preview"}`;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (paymentHeader && !privateKey) {
-        headers["PAYMENT-SIGNATURE"] = paymentHeader;
-        headers["X-PAYMENT"] = paymentHeader;
-      }
-
-      const caller = privateKey ? createGuardPayingFetch(privateKey, customFetch) : customFetch;
       const res = await caller(endpoint, {
         method: "POST",
         headers,
@@ -101,7 +93,7 @@ export const rugshieldAuditAction = {
         liquidity_usd: liquidityUsd,
         recommendation,
         attestation: data.attestation ?? null,
-        payment_mode: privateKey ? "x402_paid" : paymentHeader ? "x402_header" : "free_preview",
+        payment_mode: paymentMode,
         x402_upgrade_hint: isPaid ? undefined : X402_UPGRADE_HINT,
         summary:
           isHoneypot === true

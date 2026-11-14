@@ -49,5 +49,15 @@ const tools = [
 
 ---
 
+## 💳 Automatic Dual-Chain x402 Micropayments (Solana & Base USDC)
+
+Works out-of-the-box in **Free Preview** mode with zero keys, or upgrades automatically to full paid endpoints (`$0.010–$0.020 USDC` per call) using either your **Solana wallet** or **Base wallet**:
+
+- **Solana Mainnet USDC (`PayAI` fee-sponsored, 0 SOL gas)**: Set `SOLANA_PRIVATE_KEY` (Base58 or 64-byte JSON array) — or pass `agent.solanaPrivateKey`.
+- **Base Mainnet USDC (`CDP / PayAI` gasless EIP-3009)**: Set `X402_PRIVATE_KEY` (`0x...`) — or pass `agent.x402PrivateKey`.
+- **Custom Solana RPC**: Optional `SOLANA_RPC_URL` / `RPC_URL`.
+
+---
+
 ## 📄 License
 MIT © kurox_real
