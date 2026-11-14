@@ -1,13 +1,20 @@
 import { z } from "zod";
+import { createGuardPayingFetch, resolvePrivateKey, X402_UPGRADE_HINT } from "../x402.js";
 
 export const RugshieldAuditSchema = z.object({
-  tokenAddress: z.string().describe("The Solana SPL token mint address or Base token contract address to audit"),
-  chain: z.enum(["solana", "base"]).default("solana").describe("Blockchain network (solana or base)"),
+  tokenAddress: z
+    .string()
+    .describe("The Solana SPL token mint address or Base token contract address to audit"),
+  chain: z
+    .enum(["solana", "base"])
+    .default("solana")
+    .describe("Blockchain network (solana or base)"),
 });
 
 export const rugshieldAuditAction = {
   name: "RUGSHIELD_AUDIT_TOKEN",
-  description: "Audit any Solana SPL token mint or Base token contract for honeypots, mint authority, freeze authority, DEX liquidity depth, and buy/sell tax before swapping or investing.",
+  description:
+    "Audit any Solana SPL token mint or Base token contract for honeypots, mint authority, freeze authority, DEX liquidity depth, and buy/sell tax before swapping or investing.",
   similes: [
     "check token safety",
     "audit token for rug pull",
@@ -34,10 +41,28 @@ export const rugshieldAuditAction = {
   schema: RugshieldAuditSchema,
   handler: async (agent: any, input: z.infer<typeof RugshieldAuditSchema>) => {
     try {
-      const endpoint = "https://rugshield-402.onrender.com/v1/scan/preview";
-      const res = await fetch(endpoint, {
+      const host = (
+        (typeof process !== "undefined" ? process.env?.RUGSHIELD_URL : undefined) ||
+        "https://rugshield-402.onrender.com"
+      ).replace(/\/$/, "");
+      const customFetch = agent?.customFetch ?? fetch;
+      const privateKey = resolvePrivateKey(agent, ["RUGSHIELD_PRIVATE_KEY"]);
+      const paymentHeader =
+        agent?.rugshieldPaymentHeader ||
+        (typeof process !== "undefined" ? process.env?.RUGSHIELD_PAYMENT_HEADER : undefined);
+
+      const isPaid = Boolean(privateKey || paymentHeader);
+      const endpoint = `${host}${isPaid ? "/v1/scan" : "/v1/scan/preview"}`;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (paymentHeader && !privateKey) {
+        headers["PAYMENT-SIGNATURE"] = paymentHeader;
+        headers["X-PAYMENT"] = paymentHeader;
+      }
+
+      const caller = privateKey ? createGuardPayingFetch(privateKey, customFetch) : customFetch;
+      const res = await caller(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           token_address: input.tokenAddress,
           chain: input.chain,
@@ -53,7 +78,7 @@ export const rugshieldAuditAction = {
         };
       }
 
-      const data = await res.json();
+      const data: any = await res.json();
       const isHoneypot = typeof data.is_honeypot === "boolean" ? data.is_honeypot : null;
       const buyTaxBps = typeof data.buy_tax_bps === "number" ? data.buy_tax_bps : null;
       const sellTaxBps = typeof data.sell_tax_bps === "number" ? data.sell_tax_bps : null;
@@ -65,8 +90,9 @@ export const rugshieldAuditAction = {
           : isHoneypot === false && sellTaxBps !== null && sellTaxBps < 1000
             ? "SAFE_TO_SWAP"
             : "UNSIMULATED_PREVIEW");
+
       return {
-        status: data.simulation_status ?? "preview",
+        status: data.simulation_status ?? (isPaid ? "unknown" : "preview"),
         token: input.tokenAddress,
         chain: input.chain,
         is_honeypot: isHoneypot,
@@ -75,6 +101,8 @@ export const rugshieldAuditAction = {
         liquidity_usd: liquidityUsd,
         recommendation,
         attestation: data.attestation ?? null,
+        payment_mode: privateKey ? "x402_paid" : paymentHeader ? "x402_header" : "free_preview",
+        x402_upgrade_hint: isPaid ? undefined : X402_UPGRADE_HINT,
         summary:
           isHoneypot === true
             ? "🚨 DANGER: Token flagged as a HONEYPOT or high-tax trap!"

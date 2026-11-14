@@ -1,13 +1,20 @@
 import { z } from "zod";
+import { createGuardPayingFetch, resolvePrivateKey, X402_UPGRADE_HINT } from "../x402.js";
 
 export const CanaryguardSanitizeSchema = z.object({
-  content: z.string().describe("Untrusted text, user input, or web scraping to sanitize before LLM processing"),
-  strictMode: z.boolean().default(true).describe("Whether to strictly blank or neutralize detected adversarial payloads"),
+  content: z
+    .string()
+    .describe("Untrusted text, user input, or web scraping to sanitize before LLM processing"),
+  strictMode: z
+    .boolean()
+    .default(true)
+    .describe("Whether to strictly blank or neutralize detected adversarial payloads"),
 });
 
 export const canaryguardSanitizeAction = {
   name: "CANARYGUARD_SANITIZE_PROMPT",
-  description: "Sanitize untrusted external text, user input, or web scrapings against prompt injection, malicious instructions, and private key/wallet drain attacks.",
+  description:
+    "Sanitize untrusted external text, user input, or web scrapings against prompt injection, malicious instructions, and private key/wallet drain attacks.",
   similes: [
     "sanitize prompt",
     "detect prompt injection",
@@ -32,17 +39,26 @@ export const canaryguardSanitizeAction = {
   schema: CanaryguardSanitizeSchema,
   handler: async (agent: any, input: z.infer<typeof CanaryguardSanitizeSchema>) => {
     try {
+      const host = (
+        (typeof process !== "undefined" ? process.env?.CANARYGUARD_URL : undefined) ||
+        "https://canaryguard-402.onrender.com"
+      ).replace(/\/$/, "");
+      const customFetch = agent?.customFetch ?? fetch;
+      const privateKey = resolvePrivateKey(agent, ["CANARYGUARD_PRIVATE_KEY"]);
       const paymentHeader =
-        typeof process !== "undefined" ? process.env?.CANARYGUARD_PAYMENT_HEADER : undefined;
-      const endpoint = paymentHeader
-        ? "https://canaryguard-402.onrender.com/v1/sanitize"
-        : "https://canaryguard-402.onrender.com/v1/sanitize/preview";
+        agent?.canaryguardPaymentHeader ||
+        (typeof process !== "undefined" ? process.env?.CANARYGUARD_PAYMENT_HEADER : undefined);
+
+      const isPaid = Boolean(privateKey || paymentHeader);
+      const endpoint = `${host}${isPaid ? "/v1/sanitize" : "/v1/sanitize/preview"}`;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (paymentHeader) {
+      if (paymentHeader && !privateKey) {
         headers["PAYMENT-SIGNATURE"] = paymentHeader;
         headers["X-PAYMENT"] = paymentHeader;
       }
-      const res = await fetch(endpoint, {
+
+      const caller = privateKey ? createGuardPayingFetch(privateKey, customFetch) : customFetch;
+      const res = await caller(endpoint, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -59,7 +75,7 @@ export const canaryguardSanitizeAction = {
         };
       }
 
-      const data = await res.json();
+      const data: any = await res.json();
       return {
         status: data.status ?? "unknown",
         injection_detected: Boolean(data.injection_detected),
@@ -68,6 +84,8 @@ export const canaryguardSanitizeAction = {
         crypto_addresses: data.crypto_addresses || [],
         sanitized_content: data.sanitized_content ?? "",
         safety_receipt: data.safety_receipt,
+        payment_mode: privateKey ? "x402_paid" : paymentHeader ? "x402_header" : "free_preview",
+        x402_upgrade_hint: isPaid ? undefined : X402_UPGRADE_HINT,
       };
     } catch (err: any) {
       return {
